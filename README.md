@@ -2,7 +2,7 @@
 
 ## Descrição
 
-Este plugin é uma integração personalizada para o WooCommerce que permite a busca e atualização de produtos a partir de uma API externa. Ele foi projetado para filtrar produtos com preços acima de  500,00 e lidar com produtos duplicados, escolhendo o de menor preço maior que  500,00.
+Este plugin é uma integração personalizada para o WooCommerce que permite a busca e atualização de produtos a partir de uma API externa. Ele foi projetado para filtrar produtos com preços iguais ou acima de R$500,00 e lidar com produtos duplicados, escolhendo o de menor preço maior ou igual a 500,00.
 
 ## Requisitos
 
