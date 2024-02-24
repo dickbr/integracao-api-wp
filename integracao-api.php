@@ -3,7 +3,7 @@ set_time_limit(10000);
 /**
  * Plugin Name: Integracao API
  * Plugin URI: https://meusite.com/meu-plugin-woocommerce
- * Description: Este é um plugin personalizado para integrar a API externa com o WooCommerce.
+ * Description: Ao clicar em ativar ele ira rodar a integracao com a API EXTERNA.
  * Version:  1.0
  * Author: Jean-Pierre
  * License: GPL2
@@ -11,12 +11,13 @@ set_time_limit(10000);
 function integracao_api_init() {
     integracao_api_buscar_produtos();
 
-    if (!wp_next_scheduled('integracao_api_cron_hook')) {
-      wp_schedule_event(time(), 'daily', 'integracao_api_cron_hook');
-    } 
-
-    add_action('integracao_api_cron_hook', 'integracao_api_init');
+    add_action('integracao_api_init');
 }
+
+function integracao_api_activate() {
+    integracao_api_init();
+}
+register_activation_hook(__FILE__, 'integracao_api_activate');
 
 function hasMinPrice($price, $min_price){
   return $price >= $min_price;
@@ -146,6 +147,18 @@ function integracao_api_buscar_produtos() {
                 '_stock_status' => 'instock',
                 '_backorders' => 'no',
                 '_sold_individually' => 'no',
+                '_edit_last' => 1,
+                'total_sales' => 0,
+                '_tax_status' => 'taxable',
+                '_manage_stock' => 'no',
+                '_virtual' => 'no',
+                '_downloadable' => 'no',
+                '_download_limit' => -1,
+                '_download_expiry' => -1,
+                '_stock' => null,
+                '_wc_average_rating' => 0,
+                '_wc_review_count' => 0,
+                '_product_version' => '8.6.1',
               ]
             ];
 
@@ -172,17 +185,6 @@ function integracao_api_buscar_produtos() {
 
 }
 
-
-function integracao_api_agendar_cron() {
-    if (!wp_next_scheduled('integracao_api_cron_job')) {
-        wp_schedule_event(time(), 'daily', 'integracao_api_cron_job');
-    }
-}
-
-function integracao_api_executar_cron_job() {
-    integracao_api_init();
-}
-
 function integracao_api_register_rest_route() {
     register_rest_route('v1', '/criar-produtos', array(
         'methods' => 'GET',
@@ -193,13 +195,10 @@ function integracao_api_register_rest_route() {
 
 function integracao_api_test_endpoint() {
     integracao_api_init();
-    return new WP_REST_Response('API Finish',  200);
+    return new WP_REST_Response('Produtos Criados e/ou Atualizados com sucesso.',  200);
 }
 
-
 add_action('rest_api_init', 'integracao_api_register_rest_route');
-add_action('init', 'integracao_api_agendar_cron');
-add_action('integracao_api_cron_job', 'integracao_api_executar_cron_job');
 
 
 
