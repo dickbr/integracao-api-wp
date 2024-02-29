@@ -2,16 +2,16 @@
 set_time_limit(10000);
 /**
  * Plugin Name: Integracao API
- * Plugin URI: https://meusite.com/meu-plugin-woocommerce
- * Description: Ao clicar em ativar ele ira rodar a integracao com a API EXTERNA.
- * Version:  1.0
+ * Plugin URI: https://www.linkedin.com/in/jean-pierre-00a5a4220
+ * Description: Para iniciar a importação basta ativar o plugin e aguardar. Ao finalizar ele deverá aparecer Plugin Ativo!
+ * Version:  2.1
  * Author: Jean-Pierre
  * License: GPL2
  */
 function integracao_api_init() {
     integracao_api_buscar_produtos();
 
-    add_action('integracao_api_init');
+    add_action('init', 'integracao_api_init');
 }
 
 function integracao_api_activate() {
@@ -78,7 +78,7 @@ function integracao_api_buscar_produtos() {
     $base_url = 'https://mcstaging.vendas.agis.com.br/rest/all/V1/agis/reseller/product/list';
     $token = 'lowuhjnbyyy6mwabi4yedt6udc1pgzvd';
     $products = [];
-
+    $productsNotFound = false;
     $currentPage = 1;
     $pageSize = 250;
 
@@ -116,62 +116,76 @@ function integracao_api_buscar_produtos() {
 
           if(empty($items)){
             error_log('produtos não encontrados na api');
-            $products = [];
-            $currentPage++;
-            continue;
+            $productsNotFound = true;
+            break;
           }
 
           $products = $produtos_pagina;
 
           foreach ($produtos_pagina['items'] as &$item) {
-            $price = $item['stock'][0]['price'];
-            $sku = $item['sku'];
-            if(!hasMinPrice($price, 500)){
-              error_log('produto não possui valor minimo de R$500,00 | preço: '. $price .' | sku: ' . $sku);
-              continue;
-            }
+    $price = $item['stock'][0]['price'];
+    $sku = $item['sku'];
+    $quantity = $item['stock'][0]['qty'];
 
-            $slug = getSlug($item['name']);
-            
-            $product = [
-              'post_title' =>  $item['name'],
-              'post_name' =>  $slug,
-              'post_status'   => 'publish',
-              'post_author'   =>   1,
-              'post_type'     => 'product',
-              'meta_input' => [
-                '_sku' => $sku,
-                '_quantity' => $item['stock'][0]['qty'],
-                '_price' => $price,
-                '_visibility' => 'visible',
-                '_stock_status' => 'instock',
-                '_backorders' => 'no',
-                '_sold_individually' => 'no',
-                '_edit_last' => 1,
-                'total_sales' => 0,
-                '_tax_status' => 'taxable',
-                '_manage_stock' => 'no',
-                '_virtual' => 'no',
-                '_downloadable' => 'no',
-                '_download_limit' => -1,
-                '_download_expiry' => -1,
-                '_stock' => null,
-                '_wc_average_rating' => 0,
-                '_wc_review_count' => 0,
-                '_product_version' => '8.6.1',
-              ]
-            ];
+    if(!hasMinPrice($price, 500) || $quantity < 20){
+        error_log('produto não possui valor minimo de R$500,00 ou quantidade menor que 20 | preço: '. $price .' | sku: ' . $sku . ' | quantidade: ' . $quantity);
+        continue;
+    }
 
-              $continue = updateAndContinue($sku, $price, $product, $currentPage);
-              
-              if($continue) {
-                continue;
-              }
+    $slug = getSlug($item['name']);
+    $stripped_short_description = '';
+    $meta_title = ''; 
 
-              $result = wp_insert_post($product);
+    foreach ($item['custom_attributes'] as $custom_attribute) {
+        if ($custom_attribute['attribute_code'] === 'stripped_short_description') {
+            $stripped_short_description = $custom_attribute['value'];
+        } elseif ($custom_attribute['attribute_code'] === 'meta_title') {
+            $meta_title = $custom_attribute['value'];
+        }
+    }
 
-              logResultQuery($result, $sku, 'inserido', $currentPage);
-            }
+    $product = [
+        'post_title' => $item['name'],
+        'post_name' => $slug,
+        'post_status'   => 'publish',
+        'post_author'   =>   1,
+        'post_type'     => 'product',
+        'meta_input' => [
+            '_sku' => $sku,
+            '_quantity' => $quantity,
+            '_price' => $price,
+            '_description' => $stripped_short_description, 
+            '_visibility' => 'visible',
+            '_stock_status' => 'instock',
+            '_backorders' => 'no',
+            '_sold_individually' => 'no',
+            '_edit_last' => 1,
+            'total_sales' => 0,
+            '_tax_status' => 'taxable',
+            '_manage_stock' => 'no',
+            '_virtual' => 'no',
+            '_downloadable' => 'no',
+            '_download_limit' => -1,
+            '_download_expiry' => -1,
+            '_stock' => null,
+            '_wc_average_rating' => 0,
+            '_wc_review_count' => 0,
+            '_product_version' => '8.6.1',
+            '_meta_title' => $meta_title, 
+        ],
+        'post_content' => $stripped_short_description, 
+    ];
+
+    $continue = updateAndContinue($sku, $price, $product, $currentPage);
+    
+    if($continue) {
+        continue;
+    }
+
+    $result = wp_insert_post($product);
+
+    logResultQuery($result, $sku, 'inserido', $currentPage);
+}
 
           $currentPage++;
         } catch (Exception $e) {
@@ -181,7 +195,7 @@ function integracao_api_buscar_produtos() {
         }
 
     // } while ($currentPage <= 1);
-    } while (!empty($products));
+    } while (!$productsNotFound); 
 
 }
 
